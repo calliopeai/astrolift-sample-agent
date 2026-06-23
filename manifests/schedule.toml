@@ -1,0 +1,48 @@
+# RUN MODE: Schedule (Task family) — cron-dispatched Task.
+#
+# Spec 33 §4: Task / Schedule = dispatch a Task on a cron (e.g.
+# "0 */6 * * *"). Spec 33 PR-4 is explicit: this fires an agent-Task at
+# each cron match, NOT an app deploy.
+#
+# ⚠️ SPEC-VS-CODE — UNBUILT FIELDS. The fields this needs do NOT exist
+# (verified 2026-06-22):
+#   - run_family = "task"           (PR-1, ABSENT)
+#   - run_mode   = "schedule"       (PR-1, ABSENT)
+#   - run_cron_expression = "..."   (PR-1, ABSENT)
+#   - run_paused = false            (PR-1, ABSENT)
+# The agent-cron TICK that would read them is PR-4 (also unbuilt).
+#
+# NOTE on the `schedule` field below: `Workload.schedule` IS a verified
+# field — but the parser/renderer only honor it for `kind=cronjob` (it
+# renders a k8s CronJob). On `kind=agent` it round-trips but is inert
+# today. The spec-intended path is `kind=agent` + `run_cron_expression`
+# (agent-Task dispatch), NOT a CronJob. So `schedule` here documents the
+# cadence and parses cleanly, but does NOT yet drive agent dispatch.
+name = "sample-agent"
+brief = "brief/README.md"
+skills = [{ echo-input = "skills/echo-input" }, "shell"]
+
+[[workloads]]
+name = "agent"
+kind = "agent"
+# Cadence — parses (verified field) but inert on kind=agent until PR-4.
+schedule = "0 */6 * * *"
+# --- spec-33 run-spec (UNBUILT — the REAL Schedule path; uncomment at PR-1/PR-4) ---
+# run_family = "task"
+# run_mode = "schedule"
+# run_cron_expression = "0 */6 * * *"
+# run_paused = false
+# ----------------------------------------------------------------------------------
+max_retries = 3
+tool_timeout_seconds = 600
+result_ttl_hours = 72
+
+  [[workloads.containers]]
+  name = "agent"
+  is_primary = true
+  image_ref = "docker.io/calliopeai/astrolift-sample-agent:latest"
+  port = 8000
+
+    [workloads.containers.env]
+    LOG_LEVEL = "info"
+    RUN_MODE = "schedule"

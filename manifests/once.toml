@@ -1,0 +1,32 @@
+# RUN MODE: Once (Task family) — manual on-demand dispatch.
+#
+# Spec 33 §4: Task / Once = "manual Dispatch now" → a single k8s Job that
+# runs to completion. This is the ONLY agent run mode wired end to end
+# today (the dispatch pipeline: runAstroliftAgent → Temporal → K8sJobSpawner
+# → Job → AgentTask). The agent exits 0.
+#
+# VERIFIED FIELDS ONLY. The spec-33-PR-1 run-spec (`run_family="task"`,
+# `run_mode="once"`) does NOT exist in Workload yet (see README
+# "Spec-vs-code"); "Once" is the default dispatch with no run-spec field
+# to set, so this variant is fully real today.
+name = "sample-agent"
+brief = "brief/README.md"
+skills = [{ echo-input = "skills/echo-input" }, "shell"]
+
+[[workloads]]
+name = "agent"
+kind = "agent"
+max_retries = 3
+tool_timeout_seconds = 600
+result_ttl_hours = 72
+
+  [[workloads.containers]]
+  name = "agent"
+  is_primary = true
+  image_ref = "docker.io/calliopeai/astrolift-sample-agent:latest"
+  # RUN_FAMILY defaults to task → the entrypoint performs once and exits 0.
+  port = 8000
+
+    [workloads.containers.env]
+    LOG_LEVEL = "info"
+    RUN_MODE = "once"

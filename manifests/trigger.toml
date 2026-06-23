@@ -1,0 +1,41 @@
+# RUN MODE: Trigger (Task family) — dispatch on a webhook / event.
+#
+# Spec 33 §4: Task / Trigger = "bind to a webhook / event / condition" →
+# dispatch a Task when the bound trigger fires. Spec 33 PR-6 scopes this
+# to webhook/event only ("condition" triggers have no backing — deferred).
+#
+# ⚠️ SPEC-VS-CODE — UNBUILT FIELDS + no manifest surface. Trigger needs:
+#   - run_family = "task"     (PR-1, ABSENT)
+#   - run_mode   = "trigger"  (PR-1, ABSENT)
+#   - a trigger-BINDING (which webhook/event → this agent + input mapping).
+# PR-6 plans to add this via a WorkflowWebhook → agent FK / agent-trigger
+# model and SCM webhook fan-out. There is NO manifest key for the binding
+# today; it is configured at the platform (the /webhooks surface + the
+# run-spec), not in astrolift.toml. So this manifest declares the agent +
+# intended mode only; the binding is a platform-side config once PR-6 ships.
+name = "sample-agent"
+brief = "brief/README.md"
+skills = [{ echo-input = "skills/echo-input" }, "shell"]
+
+[[workloads]]
+name = "agent"
+kind = "agent"
+# --- spec-33 run-spec (UNBUILT — uncomment when PR-1/PR-6 land) ---
+# run_family = "task"
+# run_mode = "trigger"
+# Trigger binding is NOT a manifest field — it is set at the platform
+# (/webhooks + run-spec editor, PR-12). No TOML key exists or is planned.
+# ------------------------------------------------------------------
+max_retries = 3
+tool_timeout_seconds = 600
+result_ttl_hours = 72
+
+  [[workloads.containers]]
+  name = "agent"
+  is_primary = true
+  image_ref = "docker.io/calliopeai/astrolift-sample-agent:latest"
+  port = 8000
+
+    [workloads.containers.env]
+    LOG_LEVEL = "info"
+    RUN_MODE = "trigger"

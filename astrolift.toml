@@ -1,0 +1,55 @@
+# astrolift-sample-agent — kind=agent workload manifest.
+#
+# Verified against the live backend parser/renderer (astrolift-app
+# backend, 2026-06-22):
+#   - astrolift_manifest/parser.py reads: name, kind, the per-kind
+#     container block, and the agent-dispatch tuning keys
+#     max_retries / tool_timeout_seconds / result_ttl_hours.
+#   - astrolift_manifest/render.py (_render_agent) injects
+#     ASTROLIFT_WORKLOAD_KIND / ASTROLIFT_MAX_RETRIES / ASTROLIFT_TOOL_TIMEOUT
+#     and the astrolift.dev/workload-kind: agent pod annotation.
+#
+# The `brief` + `skills` keys below are the spec-38 pathing format. The
+# manifest PARSER does not yet read them (spec 38 build phase 1 — "not yet
+# built"); registration-time resolution (register_agent_repo /
+# scanAgentManifests) is the consumer once shipped. They are authored here
+# so the fixture is correct against the documented target and ready the
+# moment the parser lands. See README "Spec-vs-code" for details.
+
+name = "sample-agent"
+
+# Brief folder (spec 38): entry README + sibling context refs.
+brief = "brief/README.md"
+
+# Skills (spec 38 / spec 39): a local skill (folder in this repo,
+# agentskills.io format) + a bare-name catalogue skill (resolved from the
+# built-in `astrolift-skills` baseline catalogue).
+skills = [
+  { echo-input = "skills/echo-input" },  # local
+  "shell",                               # built-in catalogue (latest)
+]
+
+[[workloads]]
+name = "agent"
+kind = "agent"
+# Agent-dispatch tuning (verified parser keys). Injected into the pod as
+# ASTROLIFT_MAX_RETRIES / ASTROLIFT_TOOL_TIMEOUT by the renderer.
+max_retries = 3
+tool_timeout_seconds = 600
+result_ttl_hours = 72
+
+  [[workloads.containers]]
+  name = "agent"
+  is_primary = true
+  image_ref = "docker.io/calliopeai/astrolift-sample-agent:latest"
+  port = 8000
+
+    [workloads.containers.env]
+    LOG_LEVEL = "info"
+
+    [workloads.containers.healthcheck]
+    # Drives the readiness/liveness probe for the Service-family variant;
+    # ignored by Task-family Jobs (which have no Service / probe).
+    kind = "http"
+    value = "/health"
+    port = 8000

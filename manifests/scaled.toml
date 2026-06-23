@@ -1,0 +1,62 @@
+# RUN MODE: Scaled (Service family) — scheduled scaling (X up / 0 down).
+#
+# Spec 33 §4: Service + "scheduled scaling" = scale to X replicas on one
+# cron and to 0 on another (business-hours-up / off-hours-zero, cost-aware).
+# Builds on the Service family (Deployment + replica patching).
+#
+# ⚠️ SPEC-VS-CODE — UNBUILT FIELDS (the MOST forward-looking variant).
+# Scheduled scaling is spec 33 PR-5, called out as "mostly-new — no
+# cron-driven replica patch exists anywhere today". It needs:
+#   - run_family = "service"       (PR-1, ABSENT)
+#   - a scale-up cron + target X   (PR-5, ABSENT — field pair not declared)
+#   - a scale-down cron + 0        (PR-5, ABSENT)
+# PR-1 explicitly defers these ("Do NOT add scaled-scaling fields here —
+# those land with PR-5 to keep migrations attributable"). So NO run-spec
+# field for scheduled scaling exists yet, not even the skeleton.
+#
+# Until PR-5, this variant is a plain Service (verified Deployment+HPA
+# shape) with the scaling crons documented as intent. The agent serves
+# /health+/debug; CPU-based HPA stands in for scheduled scaling today.
+name = "sample-agent"
+brief = "brief/README.md"
+skills = [{ echo-input = "skills/echo-input" }, "shell"]
+
+[[workloads]]
+name = "agent"
+kind = "agent"
+is_public = false
+replicas = 3
+cpu_request = "100m"
+cpu_limit = "500m"
+memory_request = "128Mi"
+memory_limit = "256Mi"
+# CPU HPA — the real autoscaling available today; scheduled scaling (PR-5)
+# would layer cron→replica patches on top.
+hpa_min = 0
+hpa_max = 5
+hpa_target_cpu_pct = 75
+# --- spec-33 run-spec + scheduled scaling (UNBUILT — PR-1 + PR-5) ---
+# run_family = "service"
+# scale_up_cron   = "0 8 * * 1-5"    # 08:00 Mon–Fri → X replicas
+# scale_up_to     = 3
+# scale_down_cron = "0 18 * * 1-5"   # 18:00 Mon–Fri → 0 replicas
+# scale_down_to   = 0
+# -------------------------------------------------------------------
+max_retries = 3
+tool_timeout_seconds = 600
+result_ttl_hours = 72
+
+  [[workloads.containers]]
+  name = "agent"
+  is_primary = true
+  image_ref = "docker.io/calliopeai/astrolift-sample-agent:latest"
+  port = 8000
+
+    [workloads.containers.env]
+    LOG_LEVEL = "info"
+    RUN_FAMILY = "service"
+
+    [workloads.containers.healthcheck]
+    kind = "http"
+    value = "/health"
+    port = 8000

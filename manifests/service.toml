@@ -1,0 +1,50 @@
+# RUN MODE: Service (Service family) — always-on, N replicas.
+#
+# Spec 33 §4: Service = "always running" → backed by a k8s Deployment
+# (+ Service + HPA) pointed at the agent image. The renderer's
+# _render_agent already emits a Deployment for kind=agent, so this is the
+# real shape today — `replicas` / `hpa_*` are VERIFIED Workload fields.
+#
+# Spec-vs-code: the run-spec field that SELECTS this family
+# (`run_family="service"`, spec 33 §4 / PR-1) does NOT exist in Workload
+# yet (see README). Today the agent is always rendered as a Deployment
+# regardless of family; the fixture pins RUN_FAMILY=service as a container
+# env so the IN-POD entrypoint serves /health+/debug. Once PR-1 lands, the
+# platform-level run_family is what would drive Job-vs-Deployment.
+name = "sample-agent"
+brief = "brief/README.md"
+skills = [{ echo-input = "skills/echo-input" }, "shell"]
+
+[[workloads]]
+name = "agent"
+kind = "agent"
+is_public = false
+replicas = 2
+cpu_request = "100m"
+cpu_limit = "500m"
+memory_request = "128Mi"
+memory_limit = "256Mi"
+# HPA so the always-on service scales on CPU (verified hpa_* fields).
+hpa_min = 2
+hpa_max = 6
+hpa_target_cpu_pct = 75
+max_retries = 3
+tool_timeout_seconds = 600
+result_ttl_hours = 72
+
+  [[workloads.containers]]
+  name = "agent"
+  is_primary = true
+  image_ref = "docker.io/calliopeai/astrolift-sample-agent:latest"
+  port = 8000
+
+    [workloads.containers.env]
+    LOG_LEVEL = "info"
+    # Selects the long-running HTTP path in the entrypoint (serves
+    # /health + /debug, stays up).
+    RUN_FAMILY = "service"
+
+    [workloads.containers.healthcheck]
+    kind = "http"
+    value = "/health"
+    port = 8000

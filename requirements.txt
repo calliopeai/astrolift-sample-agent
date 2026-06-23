@@ -1,0 +1,4 @@
+# astrolift-sample-agent runs on the Python standard library only —
+# stdlib logging, json, socket, http.server. No third-party deps, so the
+# image stays tiny and the build is hermetic. Pin a dep here if the agent
+# ever needs one; the Dockerfile installs from this file unconditionally.

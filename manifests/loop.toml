@@ -1,0 +1,46 @@
+# RUN MODE: Loop (Task family) — continuous re-dispatch with a cap.
+#
+# Spec 33 §4: Task / Loop = "re-dispatch continuously" with a concurrency
+# cap (max-parallel). The platform re-launches the Task on terminal, never
+# exceeding the cap. The agent process performs ONE unit and exits 0 — the
+# LOOPING is the platform's job, not an in-process busy-loop.
+#
+# ⚠️ SPEC-VS-CODE — UNBUILT FIELDS. Loop is spec 33 §4 + PR-6 (Loop
+# controller, "mostly-new"). The fields it needs do NOT exist in Workload
+# (verified 2026-06-22):
+#   - run_family   = "task"   (PR-1, ABSENT)
+#   - run_mode     = "loop"   (PR-1, ABSENT)
+#   - run_max_parallel = 2    (PR-1 declares it; PR-6 enforces it; ABSENT)
+# `Workload.ConcurrencyPolicy` exists but is CronJob-only (per its model
+# comment) — it is NOT the Task concurrency cap.
+#
+# Until PR-1/PR-6 land, the lines below are commented. The manifest as
+# authored parses today (kind=agent + verified tuning) and dispatches once
+# via the Once path; the commented block is the build-ready Loop intent.
+name = "sample-agent"
+brief = "brief/README.md"
+skills = [{ echo-input = "skills/echo-input" }, "shell"]
+
+[[workloads]]
+name = "agent"
+kind = "agent"
+# --- spec-33 run-spec (UNBUILT — uncomment when PR-1/PR-6 land) ---
+# run_family = "task"
+# run_mode = "loop"
+# run_max_parallel = 2
+# ------------------------------------------------------------------
+max_retries = 3
+tool_timeout_seconds = 600
+result_ttl_hours = 72
+
+  [[workloads.containers]]
+  name = "agent"
+  is_primary = true
+  image_ref = "docker.io/calliopeai/astrolift-sample-agent:latest"
+  port = 8000
+
+    [workloads.containers.env]
+    LOG_LEVEL = "info"
+    # Tells the in-pod entrypoint its intended mode (it still performs one
+    # unit + exits 0 — the platform re-dispatches).
+    RUN_MODE = "loop"
