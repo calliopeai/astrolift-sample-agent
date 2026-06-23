@@ -10,17 +10,8 @@ name: Build and Publish
 on:
   push:
     branches: [main]
-    paths:
-      - "agent/**"
-      - "requirements.txt"
-      - "Dockerfile"
-      - ".github/workflows/build.yml"
-  pull_request:
-    paths:
-      - "agent/**"
-      - "requirements.txt"
-      - "Dockerfile"
   workflow_dispatch:
+
 
 env:
   REGISTRY_DOCKERHUB: docker.io
